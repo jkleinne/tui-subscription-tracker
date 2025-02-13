@@ -1,0 +1,10 @@
+[
+  {
+    "name": "Apple TV+",
+    "cost": 12,
+    "payment_frequency": "monthly",
+    "next_payment_date": "2025-03-01T00:00:00Z",
+    "remaining_payments": 6,
+    "total_payments": 6
+  }
+]

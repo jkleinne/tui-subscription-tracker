@@ -2,10 +2,12 @@ package ui
 
 import (
 	"fmt"
-	"github.com/rivo/tview"
+	"path/filepath"
 	"subscription-tracker/models"
 	"subscription-tracker/storage"
 	"time"
+
+	"github.com/rivo/tview"
 )
 
 type UI struct {
@@ -16,11 +18,21 @@ type UI struct {
 	form          *tview.Form
 }
 
+func initializeStorage() storage.Storage {
+	dataFilePath := filepath.Join("data", "subscriptions.json")
+	jsonStorage, err := storage.NewJSONStorage(dataFilePath)
+	if err != nil {
+		// Handle the error appropriately
+		panic(fmt.Sprintf("Failed to initialize storage: %v", err))
+	}
+	return jsonStorage
+}
+
 func NewUI(app *tview.Application) *UI {
 	ui := &UI{
 		app:     app,
 		pages:   tview.NewPages(),
-		storage: storage.NewMemoryStorage(),
+		storage: initializeStorage(),
 	}
 
 	ui.setupPages()
