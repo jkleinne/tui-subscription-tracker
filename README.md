@@ -1,9 +1,8 @@
 A terminal-based user interface (TUI) application for managing and tracking subscriptions. Built with Go and the `tview` library. The main motivation was to create a privacy-first application where data remains local to help keep track of recurring payments, their costs, and when they're due.
 
 ## 
-<img width="249" alt="image" src="https://github.com/user-attachments/assets/2a6e646f-76d6-409d-af89-c0c43638ec79" />
-<img width="605" alt="image" src="https://github.com/user-attachments/assets/0b8b185f-ae3e-4c1f-a21e-a7f87056a48b" />
-<img width="809" alt="image" src="https://github.com/user-attachments/assets/f1c19972-7df2-41ad-a580-4716d62d9a0f" />
+https://github.com/user-attachments/assets/d56e9a84-fd6b-4d17-bd25-3e679e9163d8
+
 
 
 ## Usage
