@@ -36,4 +36,6 @@ go run main.go
 - [github.com/rivo/tview](https://github.com/rivo/tview): Terminal UI library
 
 ## Coming up
-There's no persistance at the moment and data gets wiped on application close, which is fine for a preview but defeats the practical purpose. I haven't decided yet whether to stick with a simple solution like storing data in a JSON file or use something more industry-standard like sqlite. Both have their advantages, so TBD.
+~~There's no persistance at the moment and data gets wiped on application close, which is fine for a preview but defeats the practical purpose. I haven't decided yet whether to stick with a simple solution like storing data in a JSON file or use something more industry-standard like sqlite. Both have their advantages, so TBD.~~ Opted for JSON-based storage since the data model is relatively simple and there would be no need for additional dependencies compared to what SQLite would require (e.g. database drivers). There's also negligible performance difference between both for such a simple and small data model (most people would not even reach double-digit subscriptions).
+
+Next up would be to continue extensively testing for logical/validation errors and possibly re-write the UI to use [github.com/charmbracelet/bubbletea](https://github.com/charmbracelet/bubbletea) which was the original plan but opted for `tview` for the preview due to familiarity
