@@ -2,8 +2,9 @@ A terminal-based user interface (TUI) application for managing and tracking subs
 
 ## 
 <img width="249" alt="image" src="https://github.com/user-attachments/assets/2a6e646f-76d6-409d-af89-c0c43638ec79" />
-<img width="486" alt="image" src="https://github.com/user-attachments/assets/c2eaa3e5-54f0-4330-9f18-382cd74e4a7c" />
-<img width="559" alt="image" src="https://github.com/user-attachments/assets/0b87917e-acee-4b34-a9e1-b3e95732a7bf" />
+<img width="605" alt="image" src="https://github.com/user-attachments/assets/0b8b185f-ae3e-4c1f-a21e-a7f87056a48b" />
+<img width="809" alt="image" src="https://github.com/user-attachments/assets/f1c19972-7df2-41ad-a580-4716d62d9a0f" />
+
 
 ## Usage
 
