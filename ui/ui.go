@@ -42,8 +42,9 @@ func (ui *UI) setupPages() {
 	ui.form.
 		AddInputField("Name", "", 30, nil, nil).
 		AddInputField("Cost", "", 20, tview.InputFieldFloat, nil).
-		AddInputField("Payment Frequency", "", 20, nil, nil).
+		AddInputField("Payment Frequency (daily/weekly/monthly/yearly)", "", 20, nil, nil).
 		AddInputField("Next Payment Date (YYYY-MM-DD)", "", 20, nil, nil).
+		AddInputField("Total Payments", "", 10, tview.InputFieldInteger, nil).
 		AddButton("Save", ui.saveSubscription).
 		AddButton("Cancel", func() {
 			ui.pages.SwitchToPage("menu")
@@ -68,8 +69,9 @@ func (ui *UI) showAddForm() {
 	ui.form.
 		AddInputField("Name", "", 30, nil, nil).
 		AddInputField("Cost", "", 20, tview.InputFieldFloat, nil).
-		AddInputField("Payment Frequency", "", 20, nil, nil).
+		AddInputField("Payment Frequency (daily/weekly/monthly/yearly)", "", 20, nil, nil).
 		AddInputField("Next Payment Date (YYYY-MM-DD)", "", 20, nil, nil).
+		AddInputField("Total Payments", "", 10, tview.InputFieldInteger, nil).
 		AddButton("Save", ui.saveSubscription).
 		AddButton("Cancel", func() {
 			ui.pages.SwitchToPage("menu")
@@ -82,9 +84,13 @@ func (ui *UI) saveSubscription() {
 	costStr := ui.form.GetFormItem(1).(*tview.InputField).GetText()
 	frequency := ui.form.GetFormItem(2).(*tview.InputField).GetText()
 	dateStr := ui.form.GetFormItem(3).(*tview.InputField).GetText()
+	totalPaymentsStr := ui.form.GetFormItem(4).(*tview.InputField).GetText()
 
 	var cost float64
 	fmt.Sscanf(costStr, "%f", &cost)
+
+	var totalPayments int
+	fmt.Sscanf(totalPaymentsStr, "%d", &totalPayments)
 
 	nextPayment, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -92,7 +98,7 @@ func (ui *UI) saveSubscription() {
 		return
 	}
 
-	sub, err := models.NewSubscription(name, cost, frequency, nextPayment)
+	sub, err := models.NewSubscription(name, cost, frequency, nextPayment, totalPayments)
 	if err != nil {
 		ui.showError(err.Error())
 		return
@@ -112,11 +118,12 @@ func (ui *UI) showSubscriptions() {
 	subs := ui.storage.GetSubscriptions()
 	for _, sub := range subs {
 		timeLeft := sub.FormattedTimeUntilNextPayment()
-		description := fmt.Sprintf("Cost: $%.2f | Frequency: %s | Next Payment: %s (%s)",
+		description := fmt.Sprintf("Cost: $%.2f | Frequency: %s | Next Payment: %s (%s) | %s",
 			sub.Cost,
 			sub.PaymentFrequency,
 			sub.NextPaymentDate.Format("2006-01-02"),
-			timeLeft)
+			timeLeft,
+			sub.Status())
 
 		// Create a copy of sub for the closure
 		currentSub := sub
@@ -150,16 +157,21 @@ func (ui *UI) showEditForm(sub *models.Subscription) {
 	form.
 		AddInputField("Name", sub.Name, 30, nil, nil).
 		AddInputField("Cost", fmt.Sprintf("%.2f", sub.Cost), 20, tview.InputFieldFloat, nil).
-		AddInputField("Payment Frequency", sub.PaymentFrequency, 20, nil, nil).
+		AddInputField("Payment Frequency (daily/weekly/monthly/yearly)", sub.PaymentFrequency, 20, nil, nil).
 		AddInputField("Next Payment Date (YYYY-MM-DD)", sub.NextPaymentDate.Format("2006-01-02"), 20, nil, nil).
+		AddInputField("Total Payments", fmt.Sprintf("%d", sub.TotalPayments), 10, tview.InputFieldInteger, nil).
 		AddButton("Save", func() {
 			name := form.GetFormItem(0).(*tview.InputField).GetText()
 			costStr := form.GetFormItem(1).(*tview.InputField).GetText()
 			frequency := form.GetFormItem(2).(*tview.InputField).GetText()
 			dateStr := form.GetFormItem(3).(*tview.InputField).GetText()
+			totalPaymentsStr := form.GetFormItem(4).(*tview.InputField).GetText()
 
 			var cost float64
 			fmt.Sscanf(costStr, "%f", &cost)
+
+			var totalPayments int
+			fmt.Sscanf(totalPaymentsStr, "%d", &totalPayments)
 
 			nextPayment, err := time.Parse("2006-01-02", dateStr)
 			if err != nil {
@@ -167,7 +179,7 @@ func (ui *UI) showEditForm(sub *models.Subscription) {
 				return
 			}
 
-			updatedSub, err := models.NewSubscription(name, cost, frequency, nextPayment)
+			updatedSub, err := models.NewSubscription(name, cost, frequency, nextPayment, totalPayments)
 			if err != nil {
 				ui.showError(err.Error())
 				return
