@@ -40,4 +40,4 @@ go run main.go
 
 Opted for JSON-based storage since the data model is relatively simple and there would be no need for additional dependencies compared to what SQLite would require (e.g. database drivers). There's also negligible performance difference between both for such a simple and small data model (most people would not even reach double-digit subscriptions).
 
-Next up would be to continue extensively testing for logical/validation errors.
+Next up would be to continue fleshing out the current implementation with more features (including some logical checks that was ommitted for the sake of the preview). For example, could maybe even add an optional background task for notifications/reminders, validation is also minimal at the moment and the automatic payment processing (when the next payment date occurs) hasn't been implemented yet, etc.
