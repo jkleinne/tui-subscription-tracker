@@ -34,8 +34,8 @@ func (s *MemoryStorage) AddSubscription(sub *models.Subscription) error {
 
 	// Check for duplicate names
 	for _, existing := range s.subscriptions {
-		if existing.Name == sub.Name {
-			return fmt.Errorf("subscription with name '%s' already exists", sub.Name)
+		if existing.Name() == sub.Name() {
+			return fmt.Errorf("subscription with name '%s' already exists", sub.Name())
 		}
 	}
 
@@ -62,12 +62,12 @@ func (s *MemoryStorage) UpdateSubscription(name string, updatedSub *models.Subsc
 	defer s.mutex.Unlock()
 
 	for i, sub := range s.subscriptions {
-		if sub.Name == name {
+		if sub.Name() == name {
 			// If the name is being changed, check for duplicates
-			if name != updatedSub.Name {
+			if name != updatedSub.Name() {
 				for _, existing := range s.subscriptions {
-					if existing.Name == updatedSub.Name {
-						return fmt.Errorf("subscription with name '%s' already exists", updatedSub.Name)
+					if existing.Name() == updatedSub.Name() {
+						return fmt.Errorf("subscription with name '%s' already exists", updatedSub.Name())
 					}
 				}
 			}
@@ -83,7 +83,7 @@ func (s *MemoryStorage) DeleteSubscription(name string) error {
 	defer s.mutex.Unlock()
 
 	for i, sub := range s.subscriptions {
-		if sub.Name == name {
+		if sub.Name() == name {
 			// Remove the subscription by slicing
 			s.subscriptions = append(s.subscriptions[:i], s.subscriptions[i+1:]...)
 			return nil

@@ -7,7 +7,17 @@ import (
 	"path/filepath"
 	"subscription-tracker/models"
 	"sync"
+	"time"
 )
+
+type subscriptionJSON struct {
+	Name              string  `json:"name"`
+	Cost              float64 `json:"cost"`
+	PaymentFrequency  string  `json:"payment_frequency"`
+	NextPaymentDate   string  `json:"next_payment_date"`
+	RemainingPayments int     `json:"remaining_payments"`
+	TotalPayments     int     `json:"total_payments"`
+}
 
 type JSONStorage struct {
 	filePath      string
@@ -43,17 +53,49 @@ func (s *JSONStorage) loadFromFile() error {
 		return err
 	}
 
-	var subs []*models.Subscription
-	if err := json.Unmarshal(data, &subs); err != nil {
+	var jsonSubs []subscriptionJSON
+	if err := json.Unmarshal(data, &jsonSubs); err != nil {
 		return err
 	}
 
-	s.subscriptions = subs
+	s.subscriptions = make([]*models.Subscription, 0, len(jsonSubs))
+	for _, jsonSub := range jsonSubs {
+		// Parse the date string
+		date, err := time.Parse(time.RFC3339, jsonSub.NextPaymentDate)
+		if err != nil {
+			return fmt.Errorf("invalid date format for subscription %s: %v", jsonSub.Name, err)
+		}
+
+		sub, err := models.NewSubscription(
+			jsonSub.Name,
+			jsonSub.Cost,
+			jsonSub.PaymentFrequency,
+			date,
+			jsonSub.TotalPayments,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create subscription from JSON: %v", err)
+		}
+		s.subscriptions = append(s.subscriptions, sub)
+	}
+
 	return nil
 }
 
 func (s *JSONStorage) saveToFile() error {
-	data, err := json.MarshalIndent(s.subscriptions, "", "  ")
+	jsonSubs := make([]subscriptionJSON, len(s.subscriptions))
+	for i, sub := range s.subscriptions {
+		jsonSubs[i] = subscriptionJSON{
+			Name:              sub.Name(),
+			Cost:              sub.Cost(),
+			PaymentFrequency:  sub.PaymentFrequency(),
+			NextPaymentDate:   sub.NextPaymentDate().Format(time.RFC3339),
+			RemainingPayments: sub.RemainingPayments(),
+			TotalPayments:     sub.TotalPayments(),
+		}
+	}
+
+	data, err := json.MarshalIndent(jsonSubs, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -71,8 +113,8 @@ func (s *JSONStorage) AddSubscription(sub *models.Subscription) error {
 
 	// Check for duplicate names
 	for _, existing := range s.subscriptions {
-		if existing.Name == sub.Name {
-			return fmt.Errorf("subscription with name '%s' already exists", sub.Name)
+		if existing.Name() == sub.Name() {
+			return fmt.Errorf("subscription with name '%s' already exists", sub.Name())
 		}
 	}
 
@@ -106,12 +148,12 @@ func (s *JSONStorage) UpdateSubscription(name string, updatedSub *models.Subscri
 	defer s.mutex.Unlock()
 
 	for i, sub := range s.subscriptions {
-		if sub.Name == name {
+		if sub.Name() == name {
 			// If the name is being changed, check for duplicates
-			if name != updatedSub.Name {
+			if name != updatedSub.Name() {
 				for _, existing := range s.subscriptions {
-					if existing.Name == updatedSub.Name {
-						return fmt.Errorf("subscription with name '%s' already exists", updatedSub.Name)
+					if existing.Name() == updatedSub.Name() {
+						return fmt.Errorf("subscription with name '%s' already exists", updatedSub.Name())
 					}
 				}
 			}
@@ -137,7 +179,7 @@ func (s *JSONStorage) DeleteSubscription(name string) error {
 	defer s.mutex.Unlock()
 
 	for i, sub := range s.subscriptions {
-		if sub.Name == name {
+		if sub.Name() == name {
 			// Store subscription and index in case save fails
 			oldSub := sub
 			oldIndex := i

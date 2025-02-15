@@ -2,7 +2,7 @@ package models
 
 import (
 	"fmt"
-	"log"
+	"strings"
 	"sync"
 	"time"
 )
@@ -22,6 +22,16 @@ var ValidFrequencies = map[string]bool{
 	FrequencyYearly:  true,
 }
 
+// ValidationError represents multiple validation errors
+type ValidationError struct {
+	Errors []string
+}
+
+func (v *ValidationError) Error() string {
+	return strings.Join(v.Errors, "; ")
+}
+
+// Subscription represents a subscription with thread-safe operations
 type Subscription struct {
 	mu                sync.RWMutex
 	name              string    `json:"name"`
@@ -33,36 +43,39 @@ type Subscription struct {
 }
 
 func NewSubscription(name string, cost float64, frequency string, nextPayment time.Time, totalPayments int) (*Subscription, error) {
+	var validationErrors []string
+
 	if name == "" {
-		return nil, fmt.Errorf("subscription name cannot be empty")
+		validationErrors = append(validationErrors, "subscription name cannot be empty")
 	}
 	if cost <= 0 {
-		return nil, fmt.Errorf("cost must be greater than 0")
+		validationErrors = append(validationErrors, "cost must be greater than 0")
 	}
 	if !ValidFrequencies[frequency] {
-		return nil, fmt.Errorf("invalid payment frequency: must be one of daily, weekly, monthly, or yearly")
+		validationErrors = append(validationErrors, "invalid payment frequency: must be one of daily, weekly, monthly, or yearly")
 	}
 	if nextPayment.Before(time.Now()) {
-		return nil, fmt.Errorf("next payment date must be in the future")
+		validationErrors = append(validationErrors, "next payment date must be in the future")
 	}
 	if totalPayments <= 0 {
-		return nil, fmt.Errorf("total payments must be greater than 0")
+		validationErrors = append(validationErrors, "total payments must be greater than 0")
 	}
 
-	sub := &Subscription{
+	if len(validationErrors) > 0 {
+		return nil, &ValidationError{Errors: validationErrors}
+	}
+
+	return &Subscription{
 		name:              name,
 		cost:              cost,
 		paymentFrequency:  frequency,
 		nextPaymentDate:   nextPayment,
 		remainingPayments: totalPayments,
 		totalPayments:     totalPayments,
-	}
-
-	log.Printf("Created new subscription: %s with %d total payments", name, totalPayments)
-	return sub, nil
+	}, nil
 }
 
-// Getter methods
+// Getters with read locks
 func (s *Subscription) Name() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -99,6 +112,27 @@ func (s *Subscription) TotalPayments() int {
 	return s.totalPayments
 }
 
+// Setters with write locks and validation
+func (s *Subscription) SetName(name string) error {
+	if name == "" {
+		return fmt.Errorf("name cannot be empty")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.name = name
+	return nil
+}
+
+func (s *Subscription) SetCost(cost float64) error {
+	if cost <= 0 {
+		return fmt.Errorf("cost must be greater than 0")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cost = cost
+	return nil
+}
+
 func (s *Subscription) TimeUntilNextPayment() time.Duration {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -114,42 +148,42 @@ func (s *Subscription) FormattedTimeUntilNextPayment() string {
 	return fmt.Sprintf("%dd %dh %dm", days, hours, minutes)
 }
 
-func (s *Subscription) calculateNextPaymentDate(current time.Time) time.Time {
+// calculateNextPaymentDate handles edge cases in date calculations
+func (s *Subscription) calculateNextPaymentDate() time.Time {
+	current := s.nextPaymentDate
 	switch s.paymentFrequency {
 	case FrequencyDaily:
 		return current.AddDate(0, 0, 1)
 	case FrequencyWeekly:
 		return current.AddDate(0, 0, 7)
 	case FrequencyMonthly:
-		// Handle edge cases for months with different lengths
-		nextMonth := current.AddDate(0, 1, 0)
-		if current.Day() != nextMonth.Day() {
-			// If the day changed (e.g., Jan 31 -> Feb 28), adjust to end of month
-			if current.Day() > nextMonth.Day() {
-				return time.Date(nextMonth.Year(), nextMonth.Month()+1, 1,
-					current.Hour(), current.Minute(), current.Second(),
-					current.Nanosecond(), current.Location()).Add(-time.Second)
-			}
+		// Handle month end cases
+		year, month, day := current.Date()
+		month++
+		if month > 12 {
+			year++
+			month = 1
 		}
-		return nextMonth
+		// Adjust for months with fewer days
+		lastDay := time.Date(year, month+1, 0, current.Hour(), current.Minute(), current.Second(), current.Nanosecond(), current.Location()).Day()
+		if day > lastDay {
+			day = lastDay
+		}
+		return time.Date(year, month, day, current.Hour(), current.Minute(), current.Second(), current.Nanosecond(), current.Location())
 	case FrequencyYearly:
-		// Handle leap years
-		nextYear := current.AddDate(1, 0, 0)
-		if current.Month() == time.February && current.Day() == 29 {
-			// If it's Feb 29 and next year is not a leap year, use Feb 28
-			if nextYear.Month() == time.March {
-				return time.Date(nextYear.Year(), time.February, 28,
-					current.Hour(), current.Minute(), current.Second(),
-					current.Nanosecond(), current.Location())
-			}
+		// Handle leap year cases
+		year, month, day := current.Date()
+		if month == 2 && day == 29 && !isLeapYear(year+1) {
+			day = 28
 		}
-		return nextYear
+		return time.Date(year+1, month, day, current.Hour(), current.Minute(), current.Second(), current.Nanosecond(), current.Location())
 	default:
-		// This shouldn't happen due to validation in NewSubscription
-		log.Printf("Warning: Invalid payment frequency %s for subscription %s",
-			s.paymentFrequency, s.name)
 		return current
 	}
+}
+
+func isLeapYear(year int) bool {
+	return year%4 == 0 && (year%100 != 0 || year%400 == 0)
 }
 
 func (s *Subscription) ProcessPayment() error {
@@ -161,12 +195,7 @@ func (s *Subscription) ProcessPayment() error {
 	}
 
 	s.remainingPayments--
-	oldDate := s.nextPaymentDate
-	s.nextPaymentDate = s.calculateNextPaymentDate(oldDate)
-
-	log.Printf("Processed payment for subscription %s. Remaining payments: %d/%d",
-		s.name, s.remainingPayments, s.totalPayments)
-
+	s.nextPaymentDate = s.calculateNextPaymentDate()
 	return nil
 }
 
